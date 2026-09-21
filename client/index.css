@@ -1,0 +1,350 @@
+@import url('tldraw/tldraw.css');
+
+:root {
+  --bg: #f6f5f2;
+  --fg: #171614;
+  --muted: #7a776f;
+  --line: #e2dfd8;
+  --card: #ffffff;
+  --accent: #171614;
+  --accent-fg: #ffffff;
+  --danger: #c2372f;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 12px 32px rgba(0, 0, 0, 0.08);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121211;
+    --fg: #f1efe9;
+    --muted: #97938a;
+    --line: #2a2926;
+    --card: #1b1a18;
+    --accent: #f1efe9;
+    --accent-fg: #121211;
+    --danger: #ff6b61;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.CanvasRoot {
+  position: fixed;
+  inset: 0;
+}
+
+/* ---- auth / admin screens ---- */
+
+.Screen {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.Screen--top {
+  align-items: flex-start;
+  padding-top: 48px;
+}
+
+.Card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 28px 24px;
+  box-shadow: var(--shadow);
+}
+
+.Card--wide {
+  max-width: 720px;
+}
+
+.Card--quiet {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  text-align: center;
+}
+
+.Card p {
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.Wordmark {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 16px;
+}
+
+.Muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.Error {
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.Form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.Form--row {
+  flex-direction: row;
+  margin-bottom: 8px;
+}
+
+.Form--row .Input {
+  flex: 1;
+}
+
+.Input {
+  font: inherit;
+  font-size: 15px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  outline: none;
+  width: 100%;
+}
+
+.Input:focus {
+  border-color: var(--fg);
+}
+
+.Button {
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-fg);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
+}
+
+.Button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.Button--ghost {
+  background: transparent;
+  color: var(--fg);
+  border-color: var(--line);
+}
+
+.Link {
+  font: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--fg);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.Link--danger {
+  color: var(--danger);
+}
+
+.AdminHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.AdminNav {
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+}
+
+.AdminNav a {
+  color: var(--fg);
+}
+
+.Table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+.Table th,
+.Table td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.Table th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.Table-actions {
+  text-align: right;
+}
+
+.Tag {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+@media (max-width: 560px) {
+  .Table th:nth-child(3),
+  .Table td:nth-child(3) {
+    display: none;
+  }
+}
+
+/* ---- canvas overlays ---- */
+
+.Attribution {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  background: var(--color-panel, #fff);
+  color: var(--color-text, #000);
+  box-shadow: var(--shadow-2, 0 1px 4px rgba(0, 0, 0, 0.15));
+  z-index: 10;
+}
+
+.Attribution-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.Attribution-time,
+.Attribution-edit {
+  color: var(--color-text-3, #777);
+}
+
+.Attribution-edit {
+  padding-left: 6px;
+  border-left: 1px solid var(--color-divider, #ddd);
+}
+
+.TopBar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  pointer-events: all;
+}
+
+.TopBar-button {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  background: var(--color-panel, #fff);
+  color: var(--color-text, #000);
+  box-shadow: var(--shadow-2, 0 1px 4px rgba(0, 0, 0, 0.15));
+}
+
+.TopBar-button:hover {
+  background: var(--color-muted-2, #f0f0f0);
+}
+
+.TopBar-button--quiet {
+  box-shadow: none;
+  background: transparent;
+}
+
+.TopBar-menu {
+  position: relative;
+}
+
+.TopBar-dropdown {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  min-width: 140px;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--color-panel, #fff);
+  box-shadow: var(--shadow-3, 0 4px 16px rgba(0, 0, 0, 0.2));
+  flex-direction: column;
+}
+
+.TopBar-menu:hover .TopBar-dropdown,
+.TopBar-menu:focus-within .TopBar-dropdown {
+  display: flex;
+}
+
+.TopBar-item {
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--color-text, #000);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.TopBar-item:hover {
+  background: var(--color-muted-2, #f0f0f0);
+}

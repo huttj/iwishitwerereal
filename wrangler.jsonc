@@ -1,0 +1,40 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "iwishitwerereal",
+  "main": "worker/index.ts",
+  "account_id": "183aa6473d53e6c3f29cfa852ebfb58a",
+  "compatibility_date": "2025-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "upload_source_maps": true,
+  "workers_dev": true,
+  "preview_urls": true,
+  "routes": [
+    { "pattern": "iwishitwerereal.com", "custom_domain": true }
+  ],
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": "./dist/client",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "vars": {
+    "ADMIN_EMAILS": "joshua@hu.tt",
+    "EMAIL_FROM": "i wish it were real <hello@iwishitwerereal.com>",
+    "SITE_URL": "https://iwishitwerereal.com"
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "TLDRAW_DURABLE_OBJECT", "class_name": "TldrawDurableObject" },
+      { "name": "AUTH", "class_name": "AuthDurableObject" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["TldrawDurableObject", "AuthDurableObject"] }
+  ],
+  "r2_buckets": [
+    { "binding": "TLDRAW_BUCKET", "bucket_name": "iwishitwerereal-uploads" }
+  ],
+  "send_email": [
+    { "name": "EMAIL", "remote": true }
+  ]
+}

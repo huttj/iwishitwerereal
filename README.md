@@ -25,4 +25,6 @@ Pushes to `main` deploy via GitHub Actions. The workflow needs one repository se
 
 - `CLOUDFLARE_API_TOKEN`: a token made from the **Edit Cloudflare Workers** template, plus **Zone → DNS → Edit** on `iwishitwerereal.com` so the custom domain can be attached.
 
+- `TLDRAW_LICENSE_KEY`: tldraw hides the editor on any non-localhost host without a key. Apply for a free hobby license at tldraw.dev, then add the key as this secret. For local manual deploys put it in `.env` as `VITE_TLDRAW_LICENSE_KEY=...`.
+
 Manual deploy: `npm run deploy`.

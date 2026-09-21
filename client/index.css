@@ -280,7 +280,11 @@ body {
   border-left: 1px solid var(--color-divider, #ddd);
 }
 
+/* Replaces tldraw's share panel, sitting beside the style panel (z 300) in the
+   top-right column. Lift it so the dropdown paints above that panel. */
 .TopBar {
+  position: relative;
+  z-index: var(--tl-layer-menus, 400);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -336,6 +340,7 @@ body {
   background: var(--color-panel, #fff);
   box-shadow: var(--shadow-3, 0 4px 16px rgba(0, 0, 0, 0.2));
   flex-direction: column;
+  z-index: 1;
 }
 
 .TopBar-menu:hover .TopBar-dropdown,

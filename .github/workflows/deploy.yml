@@ -23,6 +23,8 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run build
+        env:
+          VITE_TLDRAW_LICENSE_KEY: ${{ secrets.TLDRAW_LICENSE_KEY }}
       - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v3
         with:

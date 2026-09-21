@@ -59,6 +59,7 @@ export function Canvas({ me, onSignOut }: { me: Me | null; onSignOut: () => void
   return (
     <div className="CanvasRoot">
       <Tldraw
+        licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
         store={store}
         components={components}
         options={{ deepLinks: true }}

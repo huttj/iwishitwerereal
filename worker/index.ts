@@ -3,6 +3,7 @@ import { AutoRouter, error, IRequest, json, RequestHandler } from 'itty-router'
 import { handleAssetDownload, handleAssetUpload } from './assetUploads'
 import { authStub, clearSessionCookie, getSession, isAdminEmail, publicOrigin, readCookie, SESSION_COOKIE, sessionCookie } from './auth'
 import { sendMagicLink } from './email'
+import { READONLY_HEADER } from './TldrawDurableObject'
 import type { Me } from '../shared/types'
 
 export { AuthDurableObject } from './AuthDurableObject'
@@ -126,17 +127,22 @@ const router = AutoRouter<IRequest, Args>({
   })
 
   // ---- canvas sync (websocket) ----
-  .get('/api/connect/:roomId', requireAuth, (request, env) => {
+  // Anyone can connect and watch. Only signed-in people get a writable session;
+  // the room enforces that server-side, so a modified client cannot edit either.
+  .get('/api/connect/:roomId', async (request, env) => {
     const roomId = request.params.roomId
     if (!ROOM_RE.test(roomId)) return error(400, 'Bad room id')
+    const session = await getSession(request, env)
+    const headers = new Headers(request.headers)
+    headers.set(READONLY_HEADER, session ? '0' : '1')
     const id = env.TLDRAW_DURABLE_OBJECT.idFromName(roomId)
     const room = env.TLDRAW_DURABLE_OBJECT.get(id)
-    return room.fetch(request.url, { headers: request.headers, body: request.body })
+    return room.fetch(request.url, { headers, body: request.body })
   })
 
   // ---- assets ----
   .post('/api/uploads/:uploadId', requireAuth, handleAssetUpload)
-  .get('/api/uploads/:uploadId', requireAuth, handleAssetDownload)
+  .get('/api/uploads/:uploadId', handleAssetDownload)
   .get('/api/unfurl', requireAuth, (request) => handleUnfurlRequest(request))
 
   .all('/api/*', () => error(404, 'Not found'))

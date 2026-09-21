@@ -38,7 +38,7 @@ export function Login() {
           </>
         ) : (
           <form onSubmit={submit} className="Form">
-            <p>A shared canvas for a few friends. Sign in with your email.</p>
+            <p>Anyone can look at the canvas. To add to it, sign in with your email.</p>
             <input
               className="Input"
               type="email"
@@ -55,6 +55,9 @@ export function Login() {
               {state.kind === 'sending' ? 'Sending…' : 'Email me a sign-in link'}
             </button>
             {state.kind === 'error' && <p className="Error">{state.message}</p>}
+            <a className="Button Button--ghost" href="/">
+              Just look around
+            </a>
           </form>
         )}
       </div>

@@ -3,7 +3,7 @@ import { useEditor } from 'tldraw'
 import type { Me } from '../shared/types'
 
 /** Replaces tldraw's share panel: copy-a-link-to-this-view, admin link, sign out. */
-export function TopBar({ me, onSignOut }: { me: Me; onSignOut: () => void }) {
+export function TopBar({ me, onSignOut }: { me: Me | null; onSignOut: () => void }) {
   const editor = useEditor()
   const [copied, setCopied] = useState(false)
 
@@ -24,6 +24,7 @@ export function TopBar({ me, onSignOut }: { me: Me; onSignOut: () => void }) {
       <button className="TopBar-button" onClick={copyViewLink} title="Copy a link that opens the canvas at exactly this view">
         {copied ? 'Copied!' : 'Copy link to view'}
       </button>
+      {me ? (
       <div className="TopBar-menu">
         <button className="TopBar-button TopBar-button--quiet">{me.name}</button>
         <div className="TopBar-dropdown">
@@ -37,6 +38,11 @@ export function TopBar({ me, onSignOut }: { me: Me; onSignOut: () => void }) {
           </button>
         </div>
       </div>
+      ) : (
+        <a className="TopBar-button TopBar-button--primary" href="/login">
+          Sign in to edit
+        </a>
+      )}
     </div>
   )
 }

@@ -13,6 +13,9 @@ import {
 import { DurableObject } from 'cloudflare:workers'
 import { AutoRouter, error, IRequest } from 'itty-router'
 
+/** Set by the worker (never trusted from the client) to mark a session read-only. */
+export const READONLY_HEADER = 'x-iwir-readonly'
+
 // add custom shapes and bindings here if needed:
 const schema = createTLSchema({
 	shapes: { ...defaultShapeSchemas },
@@ -97,6 +100,7 @@ export class TldrawDurableObject extends DurableObject {
 	async handleConnect(request: IRequest) {
 		const sessionId = request.query.sessionId as string
 		if (!sessionId) return error(400, 'Missing sessionId')
+		const isReadonly = request.headers.get(READONLY_HEADER) !== '0'
 
 		// Create the websocket pair for the client
 		const { 0: clientWebSocket, 1: serverWebSocket } = new WebSocketPair()
@@ -110,7 +114,7 @@ export class TldrawDurableObject extends DurableObject {
 
 		// Connect to the room. The first webSocketMessage from the client will
 		// complete the handshake and trigger debounced snapshot storage.
-		this.getOrCreateRoom().handleSocketConnect({ sessionId, socket: serverWebSocket })
+		this.getOrCreateRoom().handleSocketConnect({ sessionId, socket: serverWebSocket, isReadonly })
 
 		return new Response(null, { status: 101, webSocket: clientWebSocket })
 	}

@@ -305,6 +305,17 @@ body {
   background: var(--color-muted-2, #f0f0f0);
 }
 
+.TopBar-button--primary {
+  background: var(--color-selected, #2f80ed);
+  color: #fff;
+  text-decoration: none;
+}
+
+.TopBar-button--primary:hover {
+  background: var(--color-selected, #2f80ed);
+  filter: brightness(1.1);
+}
+
 .TopBar-button--quiet {
   box-shadow: none;
   background: transparent;

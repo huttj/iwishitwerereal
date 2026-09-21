@@ -25,22 +25,27 @@ function colorFor(id: string) {
   return USER_COLORS[h % USER_COLORS.length]
 }
 
-export function Canvas({ me, onSignOut }: { me: Me; onSignOut: () => void }) {
+/** `me` is null for anonymous viewers: the server gives them a read-only session. */
+export function Canvas({ me, onSignOut }: { me: Me | null; onSignOut: () => void }) {
   const users = useMemo<TLUserStore>(() => {
     const currentUser = computed('currentUser', () =>
-      UserRecordType.create({
-        id: createUserId(me.id),
-        name: me.name ?? me.email,
-        color: colorFor(me.id),
-      })
+      me
+        ? UserRecordType.create({
+            id: createUserId(me.id),
+            name: me.name ?? me.email,
+            color: colorFor(me.id),
+          })
+        : null
     )
     return { currentUser }
-  }, [me.id, me.name, me.email])
+  }, [me])
 
   const store = useSync({
     uri: `${window.location.origin}/api/connect/${ROOM_ID}`,
     assets: multiplayerAssetStore,
     users,
+    // Viewers are invisible: no cursor, no entry in the people menu.
+    getUserPresence: me ? undefined : () => null,
   })
 
   const components = useMemo<TLComponents>(
@@ -63,8 +68,14 @@ export function Canvas({ me, onSignOut }: { me: Me; onSignOut: () => void }) {
   )
 }
 
-function setupEditor(editor: Editor, me: Me) {
+function setupEditor(editor: Editor, me: Me | null) {
   if (import.meta.env.DEV) (window as unknown as { editor: Editor }).editor = editor
+
+  if (!me) {
+    // The server already refuses writes from this session; this hides the edit tools too.
+    editor.updateInstanceState({ isReadonly: true })
+    return
+  }
 
   editor.registerExternalAssetHandler('url', getBookmarkPreview)
 

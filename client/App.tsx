@@ -30,12 +30,21 @@ export function App() {
     setAuth({ status: 'signed-out' })
   }, [])
 
-  if (auth.status === 'loading') return <Splash />
-  if (auth.status === 'signed-out') return <Login />
-  if (!auth.me.name) return <NamePrompt onDone={(me) => setAuth({ status: 'signed-in', me })} />
+  const path = window.location.pathname
 
-  if (window.location.pathname === '/admin') {
-    return <Admin me={auth.me} onSignOut={signOut} />
+  if (auth.status === 'loading') return <Splash />
+
+  if (auth.status === 'signed-out') {
+    if (path === '/login' || path === '/admin') return <Login />
+    // Anyone can look. Editing needs a sign-in.
+    return <Canvas me={null} onSignOut={signOut} />
+  }
+
+  if (!auth.me.name) return <NamePrompt onDone={(me) => setAuth({ status: 'signed-in', me })} />
+  if (path === '/admin') return <Admin me={auth.me} onSignOut={signOut} />
+  if (path === '/login') {
+    window.location.replace('/')
+    return <Splash />
   }
   return <Canvas me={auth.me} onSignOut={signOut} />
 }

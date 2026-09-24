@@ -142,10 +142,20 @@ const router = AutoRouter<IRequest, Args>({
   // ---- admin ----
   .get('/api/admin/users', requireAdmin, async (_request, env) => json(await authStub(env).listUsers()))
 
-  /** Everything the old tldraw room still holds, for a one-off backup. */
+  // ---- the old tldraw board ----
+  // The admin page fetches the old room's records, converts them with
+  // Quickdraw's own tldraw importer in the browser, and posts the result back.
   .get('/api/admin/legacy/tldraw', requireAdmin, async (_request, env) => {
     const legacy = env.TLDRAW_DURABLE_OBJECT.get(env.TLDRAW_DURABLE_OBJECT.idFromName('main'))
-    return json(await legacy.dump())
+    return json(await legacy.records())
+  })
+
+  .post('/api/admin/legacy/import', requireAdmin, async (request, env) => {
+    const body = await readJson<{ records: unknown[] }>(request)
+    if (!Array.isArray(body.records)) return error(400, 'records must be an array')
+    if (body.records.length > 20_000) return error(413, 'Too many records at once')
+    const room = env.BOARD.get(env.BOARD.idFromName('main'))
+    return json(await room.importRecords(body.records))
   })
 
   .post('/api/admin/users', requireAdmin, async (request, env) => {

@@ -33,6 +33,13 @@ export interface Attribution {
   editedAt?: number
 }
 
+/** A tldraw store record as the old room persisted it (shape, asset, binding, page…). */
+export interface LegacyRecord {
+  id: string
+  typeName: string
+  [key: string]: unknown
+}
+
 export interface ApiError {
   error: string
 }

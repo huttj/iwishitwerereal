@@ -179,6 +179,26 @@ export class BoardDurableObject extends DurableObject<Env> {
 
   // ---- document ----
 
+  /** Bulk-load records (the tldraw import). Same validation as the socket; everyone connected sees them arrive. */
+  async importRecords(records: unknown[]): Promise<{ imported: number; rejected: number }> {
+    const put: Record<string, BoardRecord> = {}
+    let rejected = 0
+    for (const raw of records) {
+      const rec = sanitizeRecord(raw)
+      if (rec) put[rec.id] = rec
+      else rejected++
+    }
+    this.applyDiff({ put, removed: [] })
+    // relay in socket-sized pieces
+    const ids = Object.keys(put)
+    for (let i = 0; i < ids.length; i += 200) {
+      const slice: WireDiff = { put: {}, removed: [] }
+      for (const id of ids.slice(i, i + 200)) slice.put[id] = put[id]
+      this.broadcast({ type: 'diff', diff: slice }, null)
+    }
+    return { imported: ids.length, rejected }
+  }
+
   private applyDiff(diff: WireDiff) {
     const sql = this.ctx.storage.sql
     this.ctx.storage.transactionSync(() => {

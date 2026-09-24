@@ -2,7 +2,6 @@ import { FormEvent, useEffect, useState } from 'react'
 import type { Me, UserSummary } from '../shared/types'
 import { api, ApiError } from './api'
 import { Avatar } from './Avatar'
-import { LegacyImport } from './LegacyImport'
 
 export function Admin({ me, onSignOut }: { me: Me; onSignOut: () => void }) {
   const [users, setUsers] = useState<UserSummary[] | null>(null)
@@ -127,8 +126,6 @@ export function Admin({ me, onSignOut }: { me: Me; onSignOut: () => void }) {
             </tbody>
           </table>
         )}
-
-        <LegacyImport />
       </div>
     </div>
   )

@@ -33,7 +33,7 @@ Manual deploy: `npm run deploy`.
 
 ## The old tldraw board
 
-The tldraw-era room class is still declared (`worker/LegacyTldrawDurableObject.ts`) so its data is not dropped. Admins get an **Import onto the board** button at the bottom of `/admin`: it converts the old records with Quickdraw's own tldraw importer (in the browser) and posts them to the new room, keeping ids and authors, so it is safe to run more than once. When that content is no longer wanted, add a migration to `wrangler.jsonc`:
+The tldraw-era room class is still declared (`worker/LegacyTldrawDurableObject.ts`) so its data is not dropped; its content was converted onto the Quickdraw board with Quickdraw's own tldraw importer on 2026-09-24, and admins can still pull the raw records from `/api/admin/legacy/tldraw`. When that backup is no longer wanted, add a migration to `wrangler.jsonc`:
 
 ```jsonc
 { "tag": "v3", "deleted_classes": ["TldrawDurableObject"] }

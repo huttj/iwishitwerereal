@@ -1,4 +1,4 @@
-import type { LegacyRecord, Me, Person, UserSummary } from '../shared/types'
+import type { Me, Person, UserSummary } from '../shared/types'
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -40,8 +40,5 @@ export const api = {
       call<UserSummary>('/api/admin/users', { method: 'POST', body: JSON.stringify({ email }) }),
     remove: (email: string) =>
       call<{ ok: true }>(`/api/admin/users/${encodeURIComponent(email)}`, { method: 'DELETE' }),
-    legacyRecords: () => call<LegacyRecord[]>('/api/admin/legacy/tldraw'),
-    importLegacy: (records: unknown[]) =>
-      call<{ imported: number; rejected: number }>('/api/admin/legacy/import', { method: 'POST', body: JSON.stringify({ records }) }),
   },
 }

@@ -237,18 +237,6 @@ body {
   }
 }
 
-.Legacy {
-  margin-top: 28px;
-  padding-top: 20px;
-  border-top: 1px solid var(--line);
-}
-
-.Legacy-title {
-  font-size: 15px;
-  font-weight: 600;
-  margin: 0 0 8px;
-}
-
 /* ---- canvas ---- */
 
 /* The board's chrome follows the board's own theme (the switch is in its

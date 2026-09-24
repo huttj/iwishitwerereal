@@ -1,18 +1,19 @@
-import { handleUnfurlRequest } from 'cloudflare-workers-unfurl'
 import { AutoRouter, error, IRequest, json, RequestHandler } from 'itty-router'
-import { handleAssetDownload, handleAssetUpload } from './assetUploads'
+import { getAssetObjectName, handleAssetDownload, handleAssetUpload } from './assetUploads'
 import { authStub, clearSessionCookie, getSession, isAdminEmail, publicOrigin, readCookie, SESSION_COOKIE, sessionCookie } from './auth'
+import { READONLY_HEADER, USER_HEADER } from './BoardDurableObject'
 import { sendMagicLink } from './email'
-import { READONLY_HEADER } from './TldrawDurableObject'
-import type { Me } from '../shared/types'
+import type { Me, Person } from '../shared/types'
 
 export { AuthDurableObject } from './AuthDurableObject'
-export { TldrawDurableObject } from './TldrawDurableObject'
+export { BoardDurableObject } from './BoardDurableObject'
+export { TldrawDurableObject } from './LegacyTldrawDurableObject'
 
 type Args = [env: Env, ctx: ExecutionContext]
 type AuthedRequest = IRequest & { session: NonNullable<Awaited<ReturnType<typeof getSession>>> }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const AVATAR_MAX_BYTES = 512 * 1024
 const ROOM_RE = /^[a-z0-9][a-z0-9-]{0,63}$/
 
 async function readJson<T>(request: IRequest): Promise<Partial<T>> {
@@ -41,6 +42,7 @@ function toMe(env: Env, session: AuthedRequest['session']): Me {
     id: session.id,
     email: session.email,
     name: session.name,
+    avatar: session.avatar,
     isAdmin: isAdminEmail(env, session.email),
   }
 }
@@ -108,8 +110,43 @@ const router = AutoRouter<IRequest, Args>({
     return json(toMe(env, { ...session, name }))
   })
 
+  // The photo is stored under the same R2 prefix as pasted images (immutable,
+  // cached forever), so a new photo is a new URL and nothing stale is served.
+  .post('/api/me/avatar', requireAuth, async (request, env) => {
+    const session = (request as AuthedRequest).session
+    const contentType = request.headers.get('content-type') ?? ''
+    if (!/^image\/(png|jpeg|webp)$/.test(contentType)) return error(400, 'Send a PNG, JPEG or WebP image')
+    const bytes = await request.arrayBuffer()
+    if (bytes.byteLength === 0) return error(400, 'Empty image')
+    if (bytes.byteLength > AVATAR_MAX_BYTES) return error(413, 'That photo is too large')
+    const uploadId = `avatar-${session.id}-${Date.now().toString(36)}`
+    await env.UPLOADS.put(getAssetObjectName(uploadId), bytes, { httpMetadata: { contentType } })
+    const avatar = `/api/uploads/${uploadId}`
+    await authStub(env).setAvatar(session.email, avatar)
+    return json(toMe(env, { ...session, avatar }))
+  })
+
+  .delete('/api/me/avatar', requireAuth, async (request, env) => {
+    const session = (request as AuthedRequest).session
+    await authStub(env).setAvatar(session.email, null)
+    return json(toMe(env, { ...session, avatar: null }))
+  })
+
+  // ---- people ----
+  // Names and photos only, no emails: viewers see them on cursors and attribution labels anyway.
+  .get('/api/people', async (_request, env) => {
+    const people: Person[] = (await authStub(env).listUsers()).map((u) => ({ id: u.id, name: u.name, avatar: u.avatar }))
+    return json(people)
+  })
+
   // ---- admin ----
   .get('/api/admin/users', requireAdmin, async (_request, env) => json(await authStub(env).listUsers()))
+
+  /** Everything the old tldraw room still holds, for a one-off backup. */
+  .get('/api/admin/legacy/tldraw', requireAdmin, async (_request, env) => {
+    const legacy = env.TLDRAW_DURABLE_OBJECT.get(env.TLDRAW_DURABLE_OBJECT.idFromName('main'))
+    return json(await legacy.dump())
+  })
 
   .post('/api/admin/users', requireAdmin, async (request, env) => {
     const body = await readJson<{ email: string }>(request)
@@ -135,15 +172,15 @@ const router = AutoRouter<IRequest, Args>({
     const session = await getSession(request, env)
     const headers = new Headers(request.headers)
     headers.set(READONLY_HEADER, session ? '0' : '1')
-    const id = env.TLDRAW_DURABLE_OBJECT.idFromName(roomId)
-    const room = env.TLDRAW_DURABLE_OBJECT.get(id)
+    if (session) headers.set(USER_HEADER, session.id)
+    else headers.delete(USER_HEADER)
+    const room = env.BOARD.get(env.BOARD.idFromName(roomId))
     return room.fetch(request.url, { headers, body: request.body })
   })
 
   // ---- assets ----
   .post('/api/uploads/:uploadId', requireAuth, handleAssetUpload)
   .get('/api/uploads/:uploadId', handleAssetDownload)
-  .get('/api/unfurl', requireAuth, (request) => handleUnfurlRequest(request))
 
   .all('/api/*', () => error(404, 'Not found'))
 

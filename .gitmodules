@@ -1,0 +1,3 @@
+[submodule "vendor/quickdraw"]
+	path = vendor/quickdraw
+	url = https://github.com/huttj/quickdraw.git

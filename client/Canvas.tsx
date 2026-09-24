@@ -1,103 +1,179 @@
-import { useSync } from '@tldraw/sync'
-import { useMemo } from 'react'
-import {
-  computed,
-  createUserId,
-  Editor,
-  TLComponents,
-  Tldraw,
-  TLUserStore,
-  UserRecordType,
-} from 'tldraw'
+import { Quickdraw, useQuickdrawStore, type Editor, type GridId, type ThemeId } from '@quickdrawjs/react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import type { Peer } from '../shared/protocol'
 import type { Me } from '../shared/types'
+import { api } from './api'
+import { installAttribution } from './attribution'
 import { AttributionOverlay } from './AttributionOverlay'
-import { getBookmarkPreview } from './getBookmarkPreview'
-import { multiplayerAssetStore } from './multiplayerAssetStore'
+import { Cursors } from './Cursors'
+import type { People } from './people'
+import { BoardSync, type SyncStatus } from './sync'
 import { TopBar } from './TopBar'
+import { applyView, mirrorViewToHash, parseView } from './viewLink'
 
 const ROOM_ID = 'main'
+const GRIDS: GridId[] = ['none', 'lines', 'ruled', 'dots', 'crosses', 'iso']
 
-const USER_COLORS = ['#FF802B', '#EC5E41', '#F2555A', '#F04F88', '#E34BA9', '#BD54C6', '#9D5BD2', '#7B66DC', '#02B1CC', '#11B3A3', '#39B178', '#55B467']
-
-function colorFor(id: string) {
-  let h = 0
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
-  return USER_COLORS[h % USER_COLORS.length]
+function readPref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  try {
+    const v = localStorage.getItem(key)
+    return allowed.includes(v as T) ? (v as T) : fallback
+  } catch {
+    return fallback
+  }
 }
 
-/** `me` is null for anonymous viewers: the server gives them a read-only session. */
-export function Canvas({ me, onSignOut }: { me: Me | null; onSignOut: () => void }) {
-  const users = useMemo<TLUserStore>(() => {
-    const currentUser = computed('currentUser', () =>
-      me
-        ? UserRecordType.create({
-            id: createUserId(me.id),
-            name: me.name ?? me.email,
-            color: colorFor(me.id),
-          })
-        : null
-    )
-    return { currentUser }
-  }, [me])
+function writePref(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    /* private mode */
+  }
+}
 
-  const store = useSync({
-    uri: `${window.location.origin}/api/connect/${ROOM_ID}`,
-    assets: multiplayerAssetStore,
-    users,
-    // Viewers are invisible: no cursor, no entry in the people menu.
-    getUserPresence: me ? undefined : () => null,
-  })
+function socketUrl(roomId: string) {
+  return `${window.location.origin.replace(/^http/, 'ws')}/api/connect/${roomId}`
+}
 
-  const components = useMemo<TLComponents>(
-    () => ({
-      InFrontOfTheCanvas: AttributionOverlay,
-      SharePanel: () => <TopBar me={me} onSignOut={onSignOut} />,
-    }),
-    [me, onSignOut]
+/** `me` is null for anonymous viewers: they can look around but the room refuses their edits. */
+export function Canvas({ me, onMeChange, onSignOut }: { me: Me | null; onMeChange?: (me: Me) => void; onSignOut: () => void }) {
+  const store = useQuickdrawStore()
+  const editorRef = useRef<Editor | null>(null)
+  const syncRef = useRef<BoardSync | null>(null)
+  const [editor, setEditor] = useState<Editor | null>(null)
+  const [theme, setTheme] = useState<ThemeId>(() =>
+    readPref('iwir:theme', ['light', 'dark'], window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
   )
+  const [grid, setGrid] = useState<GridId>(() => readPref('iwir:grid', GRIDS, 'lines'))
+  const [status, setStatus] = useState<SyncStatus>('connecting')
+  const [peers, setPeers] = useState<Peer[]>([])
+  const [people, setPeople] = useState<People>(() => new Map())
+
+  // The link we arrived on, read once: the hash is rewritten as the camera moves.
+  const initialView = useMemo(() => parseView(window.location.hash), [])
+  const framed = useRef(false)
+
+  const loadPeople = useCallback(() => {
+    api
+      .people()
+      .then((list) => setPeople(new Map(list.map((p) => [p.id, p]))))
+      .catch(() => {})
+  }, [])
+
+  // Refetched when your own photo changes so your labels show it right away.
+  useEffect(loadPeople, [loadPeople, me?.avatar])
+
+  // Someone new signed in since the directory was fetched: fetch it again, once per id.
+  const lookedUp = useRef(new Set<string>())
+  useEffect(() => {
+    const unknown = peers.filter((p) => !people.has(p.userId) && !lookedUp.current.has(p.userId))
+    if (!unknown.length) return
+    for (const p of unknown) lookedUp.current.add(p.userId)
+    loadPeople()
+  }, [peers, people, loadPeople])
+
+  useEffect(() => (me ? installAttribution(store, me.id) : undefined), [store, me])
+
+  // First look at the document: the deep link wins, otherwise fit what is there.
+  const frame = useCallback(
+    (ed: Editor) => {
+      if (framed.current) return
+      framed.current = true
+      if (initialView) applyView(ed, initialView)
+      else if (store.shapes().length) ed.fitContent({ maxZoom: 1 })
+    },
+    [initialView, store]
+  )
+
+  useEffect(() => {
+    const sync = new BoardSync(store, socketUrl(ROOM_ID), {
+      canEdit: !!me,
+      onStatus: setStatus,
+      onPeers: setPeers,
+      onLaser: (strokes) => editorRef.current?.setRemoteScribbles(strokes),
+      onReady: (first) => {
+        if (first && editorRef.current) frame(editorRef.current)
+      },
+    })
+    syncRef.current = sync
+    sync.connect()
+    return () => {
+      sync.close()
+      syncRef.current = null
+    }
+  }, [store, me, frame])
+
+  const onMount = useCallback(
+    (ed: Editor) => {
+      editorRef.current = ed
+      setEditor(ed)
+      if (import.meta.env.DEV) (window as unknown as { editor: Editor }).editor = ed
+
+      if (initialView) applyView(ed, initialView)
+      if (syncRef.current?.isReady) frame(ed)
+      mirrorViewToHash(ed)
+
+      if (!me) {
+        // Quickdraw's own read-only mode also blocks panning, so viewers get
+        // the hand tool instead, pinned: the guards on the wrapper below stop
+        // the keyboard, paste, drop and context menu from reaching the board.
+        ed.setTool('hand')
+        ed.on('tool', () => {
+          if (ed.tool !== 'hand') ed.setTool('hand')
+        })
+        return
+      }
+
+      ed.on('scribbles', () => syncRef.current?.sendLaser(ed.getScribbles()))
+    },
+    [me, initialView, frame]
+  )
+
+  // Cursor positions are read off the wrapper (bubbled from the board), so
+  // they always go through the live editor and nothing leaks on remount.
+  const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    const ed = editorRef.current
+    if (!ed || !me) return
+    const r = ed.container.getBoundingClientRect()
+    syncRef.current?.sendCursor(ed.screenToPage(e.clientX - r.left, e.clientY - r.top))
+  }
+  const onPointerLeave = () => syncRef.current?.sendCursor(null)
+
+  const stop = (e: { stopPropagation(): void }) => e.stopPropagation()
+  const guards = me
+    ? {}
+    : {
+        onKeyDownCapture: (e: KeyboardEvent<HTMLDivElement>) => {
+          const meta = e.metaKey || e.ctrlKey
+          const zoom = (meta && ['=', '+', '-'].includes(e.key)) || (e.shiftKey && ['1', '!', '0', ')'].includes(e.key))
+          if (!zoom) e.stopPropagation()
+        },
+        onPasteCapture: stop,
+        onDropCapture: stop,
+        onDragOverCapture: stop,
+        onContextMenuCapture: stop,
+      }
 
   return (
-    <div className="CanvasRoot">
-      <Tldraw
-        licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
+    <div className="CanvasRoot" data-theme={theme} onPointerMove={onPointerMove} onPointerLeave={onPointerLeave} {...guards}>
+      <Quickdraw
         store={store}
-        components={components}
-        options={{ deepLinks: true }}
-        onMount={(editor) => setupEditor(editor, me)}
+        theme={theme}
+        grid={grid}
+        hideUi={!me}
+        onMount={onMount}
+        onThemeChange={(t) => {
+          setTheme(t)
+          writePref('iwir:theme', t)
+        }}
+        onGridChange={(g) => {
+          setGrid(g)
+          writePref('iwir:grid', g)
+        }}
       />
+      {editor && <Cursors editor={editor} peers={peers} people={people} />}
+      {editor && <AttributionOverlay editor={editor} people={people} meId={me?.id ?? null} />}
+      <TopBar me={me} onMeChange={onMeChange} onSignOut={onSignOut} editor={editor} status={status} peers={peers} people={people} />
     </div>
   )
-}
-
-function setupEditor(editor: Editor, me: Me | null) {
-  if (import.meta.env.DEV) (window as unknown as { editor: Editor }).editor = editor
-
-  if (!me) {
-    // The server already refuses writes from this session; this hides the edit tools too.
-    editor.updateInstanceState({ isReadonly: true })
-    return
-  }
-
-  editor.registerExternalAssetHandler('url', getBookmarkPreview)
-
-  // Keep the local user preferences in step with the signed-in identity so the
-  // people menu and cursor labels agree with the attribution labels.
-  editor.user.updateUserPreferences({ name: me.name ?? me.email, color: colorFor(me.id) })
-
-  // Every new shape is stamped with who made it.
-  editor.getInitialMetaForShape = () => ({
-    createdBy: editor.getAttributionUserId() ?? me.id,
-    createdAt: Date.now(),
-  })
-
-  // Edits made locally stamp the editor. Remote changes pass through untouched,
-  // otherwise every client would rewrite everyone else's shapes.
-  editor.sideEffects.registerBeforeChangeHandler('shape', (prev, next, source) => {
-    if (source !== 'user') return next
-    if (prev === next) return next
-    const userId = editor.getAttributionUserId()
-    if (!userId) return next
-    if (next.meta.editedBy === userId && typeof next.meta.editedAt === 'number' && Date.now() - next.meta.editedAt < 1000) return next
-    return { ...next, meta: { ...next.meta, editedBy: userId, editedAt: Date.now() } }
-  })
 }

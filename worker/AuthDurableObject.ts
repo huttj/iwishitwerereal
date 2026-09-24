@@ -9,6 +9,7 @@ type UserRow = {
   id: string
   email: string
   name: string | null
+  avatar: string | null
   added_by: string | null
   added_at: number
   last_login_at: number | null
@@ -18,6 +19,7 @@ export interface SessionInfo {
   id: string
   email: string
   name: string | null
+  avatar: string | null
 }
 
 function normalizeEmail(email: string) {
@@ -77,6 +79,11 @@ export class AuthDurableObject extends DurableObject<Env> {
       );
       CREATE INDEX IF NOT EXISTS sessions_email ON sessions(email);
     `)
+    const columns = this.ctx.storage.sql
+      .exec<{ name: string }>('PRAGMA table_info(users)')
+      .toArray()
+      .map((c) => c.name)
+    if (!columns.includes('avatar')) this.ctx.storage.sql.exec('ALTER TABLE users ADD COLUMN avatar TEXT')
   }
 
   private isAdmin(email: string) {
@@ -98,6 +105,7 @@ export class AuthDurableObject extends DurableObject<Env> {
       id: row.id,
       email: row.email,
       name: row.name,
+      avatar: row.avatar,
       isAdmin: this.isAdmin(row.email),
       addedBy: row.added_by,
       addedAt: row.added_at,
@@ -122,6 +130,7 @@ export class AuthDurableObject extends DurableObject<Env> {
       id: randomToken(12),
       email: normalizeEmail(email),
       name: null,
+      avatar: null,
       added_by: addedBy,
       added_at: Date.now(),
       last_login_at: null,
@@ -202,7 +211,7 @@ export class AuthDurableObject extends DurableObject<Env> {
     if (!row || row.expires_at < now) return null
     const user = this.getUserRow(row.email)
     if (!user) return null
-    return { id: user.id, email: user.email, name: user.name }
+    return { id: user.id, email: user.email, name: user.name, avatar: user.avatar }
   }
 
   async deleteSession(sessionId: string): Promise<void> {
@@ -211,6 +220,10 @@ export class AuthDurableObject extends DurableObject<Env> {
 
   async setName(email: string, name: string): Promise<void> {
     this.ctx.storage.sql.exec('UPDATE users SET name = ? WHERE email = ?', name, normalizeEmail(email))
+  }
+
+  async setAvatar(email: string, url: string | null): Promise<void> {
+    this.ctx.storage.sql.exec('UPDATE users SET avatar = ? WHERE email = ?', url, normalizeEmail(email))
   }
 
   async listUsers(): Promise<UserSummary[]> {

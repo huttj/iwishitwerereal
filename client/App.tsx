@@ -30,6 +30,8 @@ export function App() {
     setAuth({ status: 'signed-out' })
   }, [])
 
+  const updateMe = useCallback((me: Me) => setAuth({ status: 'signed-in', me }), [])
+
   const path = window.location.pathname
 
   if (auth.status === 'loading') return <Splash />
@@ -37,7 +39,7 @@ export function App() {
   if (auth.status === 'signed-out') {
     if (path === '/login' || path === '/admin') return <Login />
     // Anyone can look. Editing needs a sign-in.
-    return <Canvas me={null} onSignOut={signOut} />
+    return <Canvas key="viewer" me={null} onSignOut={signOut} />
   }
 
   if (!auth.me.name) return <NamePrompt onDone={(me) => setAuth({ status: 'signed-in', me })} />
@@ -46,7 +48,8 @@ export function App() {
     window.location.replace('/')
     return <Splash />
   }
-  return <Canvas me={auth.me} onSignOut={signOut} />
+  // Keyed on the user so signing in or out rebuilds the board and its room session.
+  return <Canvas key={auth.me.id} me={auth.me} onMeChange={updateMe} onSignOut={signOut} />
 }
 
 function Splash() {

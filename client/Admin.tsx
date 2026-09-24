@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import type { Me, UserSummary } from '../shared/types'
 import { api, ApiError } from './api'
+import { Avatar } from './Avatar'
 
 export function Admin({ me, onSignOut }: { me: Me; onSignOut: () => void }) {
   const [users, setUsers] = useState<UserSummary[] | null>(null)
@@ -108,7 +109,10 @@ export function Admin({ me, onSignOut }: { me: Me; onSignOut: () => void }) {
                     {u.email}
                     {u.isAdmin && <span className="Tag">admin</span>}
                   </td>
-                  <td>{u.name ?? <span className="Muted">—</span>}</td>
+                  <td className="Table-person">
+                    <Avatar id={u.id} name={u.name ?? '?'} avatar={u.avatar} className="Avatar--small" />
+                    {u.name ?? <span className="Muted">—</span>}
+                  </td>
                   <td>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : <span className="Muted">never</span>}</td>
                   <td className="Table-actions">
                     {!u.isAdmin && (

@@ -24,15 +24,18 @@
   },
   "durable_objects": {
     "bindings": [
-      { "name": "TLDRAW_DURABLE_OBJECT", "class_name": "TldrawDurableObject" },
-      { "name": "AUTH", "class_name": "AuthDurableObject" }
+      { "name": "BOARD", "class_name": "BoardDurableObject" },
+      { "name": "AUTH", "class_name": "AuthDurableObject" },
+      // The tldraw-era room, kept only so its data can still be exported.
+      { "name": "TLDRAW_DURABLE_OBJECT", "class_name": "TldrawDurableObject" }
     ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["TldrawDurableObject", "AuthDurableObject"] }
+    { "tag": "v1", "new_sqlite_classes": ["TldrawDurableObject", "AuthDurableObject"] },
+    { "tag": "v2", "new_sqlite_classes": ["BoardDurableObject"] }
   ],
   "r2_buckets": [
-    { "binding": "TLDRAW_BUCKET", "bucket_name": "iwishitwerereal-uploads" }
+    { "binding": "UPLOADS", "bucket_name": "iwishitwerereal-uploads" }
   ],
   "send_email": [
     { "name": "EMAIL", "remote": true }

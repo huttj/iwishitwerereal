@@ -1,4 +1,4 @@
-import type { Me, UserSummary } from '../shared/types'
+import type { Me, Person, UserSummary } from '../shared/types'
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -30,6 +30,10 @@ export const api = {
   requestLink: (email: string) =>
     call<{ ok: true }>('/api/auth/request', { method: 'POST', body: JSON.stringify({ email }) }),
   logout: () => call<{ ok: true }>('/api/auth/logout', { method: 'POST' }),
+  setAvatar: (image: Blob) =>
+    call<Me>('/api/me/avatar', { method: 'POST', body: image, headers: { 'content-type': image.type } }),
+  clearAvatar: () => call<Me>('/api/me/avatar', { method: 'DELETE' }),
+  people: () => call<Person[]>('/api/people'),
   admin: {
     list: () => call<UserSummary[]>('/api/admin/users'),
     add: (email: string) =>

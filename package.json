@@ -1,7 +1,7 @@
 {
   "name": "iwishitwerereal",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,14 +12,11 @@
     "check": "tsc"
   },
   "dependencies": {
-    "@tldraw/sync": "^5.4.2",
-    "@tldraw/sync-core": "^5.4.2",
-    "@tldraw/tlschema": "^5.4.2",
-    "cloudflare-workers-unfurl": "^0.0.9",
+    "@quickdrawjs/core": "file:vendor/quickdraw/packages/core",
+    "@quickdrawjs/react": "file:vendor/quickdraw/packages/react",
     "itty-router": "^5.0.18",
     "react": "^19.2.1",
-    "react-dom": "^19.2.1",
-    "tldraw": "^5.4.2"
+    "react-dom": "^19.2.1"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.29.1",

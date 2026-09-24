@@ -1,7 +1,7 @@
 import { error, IRequest } from 'itty-router'
 
 // assets are stored in the bucket under the /uploads path
-function getAssetObjectName(uploadId: string) {
+export function getAssetObjectName(uploadId: string) {
 	return `uploads/${uploadId.replace(/[^a-zA-Z0-9_-]+/g, '_')}`
 }
 
@@ -11,20 +11,21 @@ declare global {
 	}
 }
 
-// when a user uploads an asset, we store it in the bucket. we only allow image and video assets.
+// when a user uploads an asset, we store it in the bucket. we only allow image assets.
+// The client names uploads by content hash, so a repeat of the same image is a no-op.
 export async function handleAssetUpload(request: IRequest, env: Env) {
 	const objectName = getAssetObjectName(request.params.uploadId)
 
 	const contentType = request.headers.get('content-type') ?? ''
-	if (!contentType.startsWith('image/') && !contentType.startsWith('video/')) {
+	if (!contentType.startsWith('image/')) {
 		return error(400, 'Invalid content type')
 	}
 
-	if (await env.TLDRAW_BUCKET.head(objectName)) {
+	if (await env.UPLOADS.head(objectName)) {
 		return error(409, 'Upload already exists')
 	}
 
-	await env.TLDRAW_BUCKET.put(objectName, request.body, {
+	await env.UPLOADS.put(objectName, request.body, {
 		httpMetadata: request.headers,
 	})
 
@@ -43,7 +44,7 @@ export async function handleAssetDownload(request: IRequest, env: Env, ctx: Exec
 	}
 
 	// if not, we try to fetch the asset from the bucket
-	const object = await env.TLDRAW_BUCKET.get(objectName, {
+	const object = await env.UPLOADS.get(objectName, {
 		range: request.headers,
 		onlyIf: request.headers,
 	})
